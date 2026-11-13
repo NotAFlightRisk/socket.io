@@ -40,11 +40,6 @@ if (cluster.isPrimary) {
 
   const numCPUs = availableParallelism();
 
-  // fork workers
-  for (let i = 0; i < numCPUs; i++) {
-    cluster.fork();
-  }
-
   // setup connection within the cluster
   setupPrimary();
 
@@ -52,6 +47,11 @@ if (cluster.isPrimary) {
   cluster.setupPrimary({
     serialization: "advanced",
   });
+
+  // fork workers
+  for (let i = 0; i < numCPUs; i++) {
+    cluster.fork();
+  }
 
   cluster.on("exit", (worker, code, signal) => {
     console.log(`worker ${worker.process.pid} died`);
@@ -127,11 +127,6 @@ if (cluster.isPrimary) {
 
   const numCPUs = availableParallelism();
 
-  // fork workers
-  for (let i = 0; i < numCPUs; i++) {
-    cluster.fork();
-  }
-
   const pubClient = createClient();
   const subClient = pubClient.duplicate();
 
@@ -147,6 +142,11 @@ if (cluster.isPrimary) {
   cluster.setupPrimary({
     serialization: "advanced",
   });
+
+  // fork workers
+  for (let i = 0; i < numCPUs; i++) {
+    cluster.fork();
+  }
 
   cluster.on("exit", (worker, code, signal) => {
     console.log(`worker ${worker.process.pid} died`);
