@@ -5,6 +5,7 @@ const { WebSocket } = require("ws");
 const helmet = require("helmet");
 const session = require("express-session");
 const { ClientSocket } = require("./common");
+const success = require("./utils/success");
 
 describe("middlewares", () => {
   it("should apply middleware (polling)", (done) => {
@@ -22,10 +23,7 @@ describe("middlewares", () => {
           expect(res.status).to.eql(200);
           expect(res.headers["foo"]).to.eql("bar");
 
-          if (engine.httpServer) {
-            engine.httpServer.close();
-          }
-          done();
+          success(done, engine);
         });
     });
   });
@@ -44,10 +42,7 @@ describe("middlewares", () => {
       socket.on("upgrade", (res) => {
         expect(res.headers["foo"]).to.eql("bar");
 
-        if (engine.httpServer) {
-          engine.httpServer.close();
-        }
-        done();
+        success(done, engine);
       });
 
       socket.on("open", () => {
@@ -61,10 +56,7 @@ describe("middlewares", () => {
       engine.use((req, res, next) => {
         expect(res.on).to.be.a("function");
         res.on("close", () => {
-          if (engine.httpServer) {
-            engine.httpServer.close();
-          }
-          done();
+          success(done, engine);
         });
         next();
       });
@@ -105,10 +97,7 @@ describe("middlewares", () => {
           expect(err).to.be(null);
           expect(res.status).to.eql(200);
 
-          if (engine.httpServer) {
-            engine.httpServer.close();
-          }
-          done();
+          success(done, engine);
         });
     });
   });
@@ -134,10 +123,7 @@ describe("middlewares", () => {
           expect(err).to.be.an(Error);
           expect(res.status).to.eql(503);
 
-          if (engine.httpServer) {
-            engine.httpServer.close();
-          }
-          done();
+          success(done, engine);
         });
     });
   });
@@ -158,10 +144,7 @@ describe("middlewares", () => {
       );
 
       socket.addEventListener("error", () => {
-        if (engine.httpServer) {
-          engine.httpServer.close();
-        }
-        done();
+        success(done, engine);
       });
     });
   });
@@ -179,10 +162,7 @@ describe("middlewares", () => {
           expect(res.headers["x-download-options"]).to.eql("noopen");
           expect(res.headers["x-content-type-options"]).to.eql("nosniff");
 
-          if (engine.httpServer) {
-            engine.httpServer.close();
-          }
-          done();
+          success(done, engine);
         });
     });
   });
@@ -199,10 +179,7 @@ describe("middlewares", () => {
         expect(res.headers["x-download-options"]).to.eql("noopen");
         expect(res.headers["x-content-type-options"]).to.eql("nosniff");
 
-        if (engine.httpServer) {
-          engine.httpServer.close();
-        }
-        done();
+        success(done, engine);
       });
 
       socket.on("open", () => {
@@ -232,10 +209,7 @@ describe("middlewares", () => {
             true,
           );
 
-          if (engine.httpServer) {
-            engine.httpServer.close();
-          }
-          done();
+          success(done, engine);
         });
     });
   });
@@ -260,10 +234,7 @@ describe("middlewares", () => {
           true,
         );
 
-        if (engine.httpServer) {
-          engine.httpServer.close();
-        }
-        done();
+        success(done, engine);
       });
 
       socket.on("open", () => {
@@ -285,10 +256,7 @@ describe("middlewares", () => {
           expect(err).to.be.an(Error);
           expect(res.status).to.eql(400);
 
-          if (engine.httpServer) {
-            engine.httpServer.close();
-          }
-          done();
+          success(done, engine);
         });
     });
 
@@ -307,10 +275,7 @@ describe("middlewares", () => {
         );
 
         socket.addEventListener("error", () => {
-          if (engine.httpServer) {
-            engine.httpServer.close();
-          }
-          done();
+          success(done, engine);
         });
       });
     });
@@ -336,8 +301,8 @@ describe("middlewares", () => {
       socket.on("open", () => {
         socket.send("aasdasdakjhasdkjhasdkjhasdkjhasdkjhasdkjhasdkjha");
       });
-      socket.on("close", (reason) => {
-        done();
+      socket.on("close", () => {
+        success(done, engine);
       });
     });
   });

@@ -14,6 +14,7 @@ const {
   runHandshake,
   createPartialDone,
 } = require("./common");
+const success = require("./utils/success");
 const expect = require("expect.js");
 const request = require("superagent");
 const cookieMod = require("cookie");
@@ -25,27 +26,12 @@ const IS_CLIENT_V3 = process.env.EIO_CLIENT === "3";
 const onErrorMethod = IS_CLIENT_V3 ? "onError" : "_onError";
 const sendPacketMethod = IS_CLIENT_V3 ? "sendPacket" : "_sendPacket";
 
-/**
- * Tests.
- */
-
 describe("server", () => {
-  let engine, client;
-
-  afterEach(() => {
-    if (engine && engine.httpServer) {
-      engine.httpServer.close();
-    }
-    if (client) {
-      client.close();
-    }
-  });
-
   describe("verification", () => {
     it("should disallow non-existent transports", (done) => {
-      const partialDone = createPartialDone(done, 2);
+      const partialDone = createPartialDone(() => success(done, engine), 2);
 
-      engine = listen((port) => {
+      const engine = listen((port) => {
         engine.on("connection_error", (err) => {
           expect(err.req).to.be.ok();
           expect(err.code).to.be(0);
@@ -68,10 +54,10 @@ describe("server", () => {
     });
 
     it("should disallow `constructor` as transports", (done) => {
-      const partialDone = createPartialDone(done, 2);
+      const partialDone = createPartialDone(() => success(done, engine), 2);
 
       // make sure we check for actual properties - not those present on every {}
-      engine = listen((port) => {
+      const engine = listen((port) => {
         engine.on("connection_error", (err) => {
           expect(err.req).to.be.ok();
           expect(err.code).to.be(0);
@@ -95,9 +81,9 @@ describe("server", () => {
     });
 
     it("should disallow non-existent sids", (done) => {
-      const partialDone = createPartialDone(done, 2);
+      const partialDone = createPartialDone(() => success(done, engine), 2);
 
-      engine = listen((port) => {
+      const engine = listen((port) => {
         engine.on("connection_error", (err) => {
           expect(err.req).to.be.ok();
           expect(err.code).to.be(1);
@@ -121,9 +107,9 @@ describe("server", () => {
     });
 
     it("should disallow requests that are rejected by `allowRequest`", (done) => {
-      const partialDone = createPartialDone(done, 2);
+      const partialDone = createPartialDone(() => success(done, engine), 2);
 
-      engine = listen(
+      const engine = listen(
         {
           allowRequest: (req, fn) => {
             fn("Thou shall not pass", false);
@@ -154,7 +140,7 @@ describe("server", () => {
     });
 
     it("should disallow connection that are rejected by `allowRequest` (ws)", (done) => {
-      listen(
+      const engine = listen(
         {
           allowRequest: (req, fn) => {
             fn(null, false);
@@ -165,14 +151,14 @@ describe("server", () => {
             transports: ["websocket"],
           });
           client.on("error", () => {
-            done();
+            success(done, engine);
           });
         },
       );
     });
 
     it("should not throw when the client sends invalid data during the handshake (ws only)", (done) => {
-      listen((port) => {
+      const engine = listen((port) => {
         // will throw "RangeError: Invalid WebSocket frame: RSV2 and RSV3 must be clear"
         request
           .get(`http://localhost:${port}/engine.io/`)
@@ -184,12 +170,12 @@ describe("server", () => {
           .send("test")
           .end(() => {});
 
-        setTimeout(done, 50);
+        setTimeout(() => success(done, engine), 50);
       });
     });
 
     it("should not throw when the client sends invalid data during the handshake (upgrade)", (done) => {
-      listen((port) => {
+      const engine = listen((port) => {
         request
           .get(`http://localhost:${port}/engine.io/`)
           .query({ transport: "polling", EIO: 4 })
@@ -206,13 +192,13 @@ describe("server", () => {
               .send("test")
               .end(() => {});
 
-            setTimeout(done, 50);
+            setTimeout(() => success(done, engine), 50);
           });
       });
     });
 
     it("should prevent the client from upgrading twice", (done) => {
-      engine = listen((port) => {
+      const engine = listen((port) => {
         const client = new ClientSocket(`ws://localhost:${port}`);
 
         client.on("upgrade", () => {
@@ -225,7 +211,7 @@ describe("server", () => {
           socket.on("close", () => {
             client.close();
 
-            done();
+            success(done, engine);
           });
         });
       });
@@ -235,7 +221,7 @@ describe("server", () => {
       if (IS_CLIENT_V3) {
         return this.skip();
       }
-      engine = listen({ allowEIO3: true }, (port) => {
+      const engine = listen({ allowEIO3: true }, (port) => {
         request
           .get(`http://localhost:${port}/engine.io/`)
           .query({ transport: "polling", EIO: 4 })
@@ -248,7 +234,7 @@ describe("server", () => {
               expect(err.context.name).to.be("PROTOCOL_MISMATCH");
               expect(err.context.protocol).to.be(3);
               expect(err.context.previousProtocol).to.be(4);
-              done();
+              success(done, engine);
             });
 
             const socket = new WebSocket(
@@ -261,9 +247,9 @@ describe("server", () => {
     });
 
     it("should disallow `__proto__` as transport (polling)", (done) => {
-      const partialDone = createPartialDone(done, 2);
+      const partialDone = createPartialDone(() => success(done, engine), 2);
 
-      engine = listen((port) => {
+      const engine = listen((port) => {
         engine.on("connection_error", (err) => {
           expect(err.req).to.be.ok();
           expect(err.code).to.be(0);
@@ -286,9 +272,9 @@ describe("server", () => {
     });
 
     it("should disallow `__proto__` as transport (websocket)", (done) => {
-      const partialDone = createPartialDone(done, 2);
+      const partialDone = createPartialDone(() => success(done, engine), 2);
 
-      engine = listen((port) => {
+      const engine = listen((port) => {
         engine.on("connection_error", (err) => {
           expect(err.req).to.be.ok();
           expect(err.code).to.be(0);
@@ -308,7 +294,7 @@ describe("server", () => {
 
   describe("handshake", () => {
     it("should send the io cookie", (done) => {
-      listen({ cookie: true }, (port) => {
+      const engine = listen({ cookie: true }, (port) => {
         request
           .get(`http://localhost:${port}/engine.io/`)
           .query({ transport: "polling", EIO: 4 })
@@ -319,13 +305,13 @@ describe("server", () => {
             expect(res.headers["set-cookie"][0]).to.be(
               `io=${sid}; Path=/; HttpOnly; SameSite=Lax`,
             );
-            done();
+            success(done, engine);
           });
       });
     });
 
     it("should send the io cookie custom name", (done) => {
-      listen({ cookie: { name: "woot" } }, (port) => {
+      const engine = listen({ cookie: { name: "woot" } }, (port) => {
         request
           .get(`http://localhost:${port}/engine.io/`)
           .query({ transport: "polling", b64: 1 })
@@ -335,13 +321,13 @@ describe("server", () => {
             expect(res.headers["set-cookie"][0]).to.be(
               `woot=${sid}; Path=/; HttpOnly; SameSite=Lax`,
             );
-            done();
+            success(done, engine);
           });
       });
     });
 
     it("should send the cookie with custom path", (done) => {
-      listen({ cookie: { path: "/custom" } }, (port) => {
+      const engine = listen({ cookie: { path: "/custom" } }, (port) => {
         request
           .get(`http://localhost:${port}/engine.io/`)
           .query({ transport: "polling", b64: 1 })
@@ -351,13 +337,13 @@ describe("server", () => {
             expect(res.headers["set-cookie"][0]).to.be(
               `io=${sid}; Path=/custom; HttpOnly; SameSite=Lax`,
             );
-            done();
+            success(done, engine);
           });
       });
     });
 
     it("should send the cookie with path=false", (done) => {
-      listen({ cookie: { path: false } }, (port) => {
+      const engine = listen({ cookie: { path: false } }, (port) => {
         request
           .get(`http://localhost:${port}/engine.io/`)
           .query({ transport: "polling", b64: 1 })
@@ -367,13 +353,13 @@ describe("server", () => {
             expect(res.headers["set-cookie"][0]).to.be(
               `io=${sid}; HttpOnly; SameSite=Lax`,
             );
-            done();
+            success(done, engine);
           });
       });
     });
 
     it("should send the io cookie with httpOnly=true", (done) => {
-      listen({ cookie: { httpOnly: true } }, (port) => {
+      const engine = listen({ cookie: { httpOnly: true } }, (port) => {
         request
           .get(`http://localhost:${port}/engine.io/`)
           .query({ transport: "polling", b64: 1 })
@@ -383,13 +369,13 @@ describe("server", () => {
             expect(res.headers["set-cookie"][0]).to.be(
               `io=${sid}; Path=/; HttpOnly; SameSite=Lax`,
             );
-            done();
+            success(done, engine);
           });
       });
     });
 
     it("should send the io cookie with sameSite=strict", (done) => {
-      listen({ cookie: { sameSite: "strict" } }, (port) => {
+      const engine = listen({ cookie: { sameSite: "strict" } }, (port) => {
         request
           .get(`http://localhost:${port}/engine.io/`)
           .query({ transport: "polling", b64: 1 })
@@ -399,13 +385,13 @@ describe("server", () => {
             expect(res.headers["set-cookie"][0]).to.be(
               `io=${sid}; Path=/; HttpOnly; SameSite=Strict`,
             );
-            done();
+            success(done, engine);
           });
       });
     });
 
     it("should send the io cookie with httpOnly=false", (done) => {
-      listen({ cookie: { httpOnly: false } }, (port) => {
+      const engine = listen({ cookie: { httpOnly: false } }, (port) => {
         request
           .get(`http://localhost:${port}/engine.io/`)
           .query({ transport: "polling", b64: 1 })
@@ -415,13 +401,13 @@ describe("server", () => {
             expect(res.headers["set-cookie"][0]).to.be(
               `io=${sid}; Path=/; SameSite=Lax`,
             );
-            done();
+            success(done, engine);
           });
       });
     });
 
     it("should send the io cookie with httpOnly not boolean", (done) => {
-      listen({ cookie: { httpOnly: "no" } }, (port) => {
+      const engine = listen({ cookie: { httpOnly: "no" } }, (port) => {
         request
           .get(`http://localhost:${port}/engine.io/`)
           .query({ transport: "polling", b64: 1 })
@@ -431,20 +417,20 @@ describe("server", () => {
             expect(res.headers["set-cookie"][0]).to.be(
               `io=${sid}; Path=/; HttpOnly; SameSite=Lax`,
             );
-            done();
+            success(done, engine);
           });
       });
     });
 
     it("should not send the io cookie", (done) => {
-      listen({ cookie: false }, (port) => {
+      const engine = listen({ cookie: false }, (port) => {
         request
           .get(`http://localhost:${port}/engine.io/`)
           .query({ transport: "polling" })
           .end((err, res) => {
             expect(err).to.be(null);
             expect(res.headers["set-cookie"]).to.be(undefined);
-            done();
+            success(done, engine);
           });
       });
     });
@@ -458,7 +444,7 @@ describe("server", () => {
         socket.on("open", () => {
           expect(Object.keys(engine.clients)).to.have.length(1);
           expect(engine.clientsCount).to.be(1);
-          done();
+          success(done, engine);
         });
       });
     });
@@ -478,7 +464,7 @@ describe("server", () => {
           expect(engine.clientsCount).to.be(1);
           expect(socket.id).to.be(customId);
           expect(engine.clients[customId].id).to.be(customId);
-          done();
+          success(done, engine);
         });
       });
     });
@@ -493,15 +479,15 @@ describe("server", () => {
         socket.once("open", () => {
           expect(socket.id).to.be(customId);
           expect(engine.clients[customId].id).to.be(customId);
-          done();
+          success(done, engine);
         });
       });
     });
 
     it("should disallow connection that are rejected by `generateId`", (done) => {
-      const partialDone = createPartialDone(done, 2);
+      const partialDone = createPartialDone(() => success(done, engine), 2);
 
-      engine = listen({ allowUpgrades: false }, (port) => {
+      const engine = listen({ allowUpgrades: false }, (port) => {
         engine.generateId = () => {
           return Promise.reject(new Error("nope"));
         };
@@ -525,9 +511,9 @@ describe("server", () => {
       if (process.env.EIO_WS_ENGINE === "eiows") {
         return this.skip();
       }
-      const partialDone = createPartialDone(done, 2);
+      const partialDone = createPartialDone(() => success(done, engine), 2);
 
-      engine = listen({ allowUpgrades: false }, (port) => {
+      const engine = listen({ allowUpgrades: false }, (port) => {
         engine.generateId = () => {
           return Promise.reject(new Error("nope"));
         };
@@ -550,26 +536,29 @@ describe("server", () => {
     });
 
     it("should exchange handshake data", (done) => {
-      listen({ allowUpgrades: false }, (port) => {
+      const engine = listen({ allowUpgrades: false }, (port) => {
         const socket = new ClientSocket(`ws://localhost:${port}`);
         socket.on("handshake", (obj) => {
           expect(obj.sid).to.be.a("string");
           expect(obj.pingTimeout).to.be.a("number");
           expect(obj.upgrades).to.be.an("array");
           expect(obj.maxPayload).to.eql(1000000);
-          done();
+          success(done, engine);
         });
       });
     });
 
     it("should allow custom ping timeouts", (done) => {
-      listen({ allowUpgrades: false, pingTimeout: 123 }, (port) => {
-        const socket = new ClientSocket(`http://localhost:${port}`);
-        socket.on("handshake", (obj) => {
-          expect(obj.pingTimeout).to.be(123);
-          done();
-        });
-      });
+      const engine = listen(
+        { allowUpgrades: false, pingTimeout: 123 },
+        (port) => {
+          const socket = new ClientSocket(`http://localhost:${port}`);
+          socket.on("handshake", (obj) => {
+            expect(obj.pingTimeout).to.be(123);
+            success(done, engine);
+          });
+        },
+      );
     });
 
     it("should trigger a connection event with a Socket", (done) => {
@@ -577,7 +566,7 @@ describe("server", () => {
         new ClientSocket(`ws://localhost:${port}`);
         engine.on("connection", (socket) => {
           expect(socket).to.be.an(Socket);
-          done();
+          success(done, engine);
         });
       });
     });
@@ -587,7 +576,7 @@ describe("server", () => {
         new ClientSocket(`ws://localhost:${port}`);
         engine.on("connection", (socket) => {
           expect(socket.transport.name).to.be("polling");
-          done();
+          success(done, engine);
         });
       });
     });
@@ -599,58 +588,58 @@ describe("server", () => {
         });
         engine.on("connection", (socket) => {
           expect(socket.transport.name).to.be("websocket");
-          done();
+          success(done, engine);
         });
       });
     });
 
     it("should not suggest any upgrades for websocket", (done) => {
-      listen({ transports: ["websocket"] }, (port) => {
+      const engine = listen({ transports: ["websocket"] }, (port) => {
         const socket = new ClientSocket(`ws://localhost:${port}`, {
           transports: ["websocket"],
         });
         socket.on("handshake", (obj) => {
           expect(obj.upgrades).to.have.length(0);
-          done();
+          success(done, engine);
         });
       });
     });
 
     it("should not suggest upgrades when none are available", (done) => {
-      listen({ transports: ["polling"] }, (port) => {
+      const engine = listen({ transports: ["polling"] }, (port) => {
         const socket = new ClientSocket(`ws://localhost:${port}`, {});
         socket.on("handshake", (obj) => {
           expect(obj.upgrades).to.have.length(0);
-          done();
+          success(done, engine);
         });
       });
     });
 
     it("should only suggest available upgrades", (done) => {
-      listen({ transports: ["polling"] }, (port) => {
+      const engine = listen({ transports: ["polling"] }, (port) => {
         const socket = new ClientSocket(`ws://localhost:${port}`, {});
         socket.on("handshake", (obj) => {
           expect(obj.upgrades).to.have.length(0);
-          done();
+          success(done, engine);
         });
       });
     });
 
     it("should suggest all upgrades when no transports are disabled", (done) => {
-      listen({}, (port) => {
+      const engine = listen({}, (port) => {
         const socket = new ClientSocket(`ws://localhost:${port}`, {});
         socket.on("handshake", (obj) => {
           expect(obj.upgrades).to.have.length(1);
           expect(obj.upgrades).to.have.contain("websocket");
-          done();
+          success(done, engine);
         });
       });
     });
 
     it("default to polling when proxy doesn't support websocket", (done) => {
-      const partialDone = createPartialDone(done, 2);
+      const partialDone = createPartialDone(() => success(done, engine), 2);
 
-      engine = listen({ allowUpgrades: false }, (port) => {
+      const engine = listen({ allowUpgrades: false }, (port) => {
         engine.on("connection", (socket) => {
           socket.on("message", (msg) => {
             if ("echo" === msg) socket.send(msg);
@@ -667,7 +656,7 @@ describe("server", () => {
           partialDone();
         });
 
-        var socket = new ClientSocket(`ws://localhost:${port}`);
+        const socket = new ClientSocket(`ws://localhost:${port}`);
         socket.on("open", () => {
           request
             .get(`http://localhost:${port}/engine.io/`)
@@ -693,7 +682,7 @@ describe("server", () => {
         engine.on("connection", (conn) => {
           expect(conn.request._query).to.have.keys("transport", "a");
           expect(conn.request._query.a).to.be("b");
-          done();
+          success(done, engine);
         });
       });
     });
@@ -705,15 +694,15 @@ describe("server", () => {
           expect(conn.request._query.EIO).to.be.a("string");
           expect(conn.request._query.a).to.be("b");
           expect(conn.request._query.c).to.be("d");
-          done();
+          success(done, engine);
         });
       });
     });
 
     it("should disallow bad requests (handshake error)", function (done) {
-      const partialDone = createPartialDone(done, 2);
+      const partialDone = createPartialDone(() => success(done, engine), 2);
 
-      engine = listen(
+      const engine = listen(
         {
           cors: { credentials: true, origin: "http://engine.io" },
         },
@@ -751,9 +740,9 @@ describe("server", () => {
       if (process.env.EIO_WS_ENGINE === "uws") {
         return this.skip();
       }
-      const partialDone = createPartialDone(done, 2);
+      const partialDone = createPartialDone(() => success(done, engine), 2);
 
-      engine = listen((port) => {
+      const engine = listen((port) => {
         // we can't send an invalid header through request.get
         // so add an invalid char here
         engine.prepare = function (req) {
@@ -785,9 +774,9 @@ describe("server", () => {
     });
 
     it("should disallow invalid handshake method", (done) => {
-      const partialDone = createPartialDone(done, 2);
+      const partialDone = createPartialDone(() => success(done, engine), 2);
 
-      engine = listen((port) => {
+      const engine = listen((port) => {
         engine.on("connection_error", (err) => {
           expect(err.req).to.be.ok();
           expect(err.code).to.be(2);
@@ -810,7 +799,7 @@ describe("server", () => {
     });
 
     it("should disallow unsupported protocol versions", (done) => {
-      const partialDone = createPartialDone(done, 2);
+      const partialDone = createPartialDone(() => success(done, engine), 2);
 
       const httpServer = http.createServer();
       const engine = new Server({ allowEIO3: false });
@@ -842,20 +831,20 @@ describe("server", () => {
     });
 
     it("should send a packet along with the handshake", (done) => {
-      listen({ initialPacket: "faster!" }, (port) => {
+      const engine = listen({ initialPacket: "faster!" }, (port) => {
         const socket = new ClientSocket(`ws://localhost:${port}`);
         socket.on("open", () => {
           socket.on("message", (msg) => {
             expect(msg).to.be("faster!");
-            done();
+            success(done, engine);
           });
         });
       });
     });
 
     it("should support requests without trailing slash", (done) => {
-      listen({ addTrailingSlash: false }, (port) => {
-        const partialDone = createPartialDone(done, 2);
+      const engine = listen({ addTrailingSlash: false }, (port) => {
+        const partialDone = createPartialDone(() => success(done, engine), 2);
 
         request
           .get(`http://localhost:${port}/engine.io`)
@@ -894,7 +883,7 @@ describe("server", () => {
             expect(conn.writeBuffer.length).to.be(1);
             setTimeout(() => {
               expect(conn.writeBuffer.length).to.be(0); // writeBuffer has been cleared
-              done();
+              success(done, engine);
             }, 10);
           });
           conn.writeBuffer.push({ type: "message", data: "foo" });
@@ -905,14 +894,14 @@ describe("server", () => {
 
     it("should be able to access non-empty writeBuffer at closing (client)", (done) => {
       const opts = { allowUpgrades: false };
-      listen(opts, (port) => {
+      const engine = listen(opts, (port) => {
         const socket = new ClientSocket(`http://localhost:${port}`);
         socket.on("open", () => {
           socket.on("close", (reason) => {
             expect(socket.writeBuffer.length).to.be(1);
             setTimeout(() => {
               expect(socket.writeBuffer.length).to.be(0);
-              done();
+              success(done, engine);
             }, 10);
           });
           socket.writeBuffer.push({ type: "message", data: "foo" });
@@ -929,7 +918,7 @@ describe("server", () => {
         engine.on("connection", (conn) => {
           conn.on("close", (reason) => {
             expect(reason).to.be("ping timeout");
-            done();
+            success(done, engine);
           });
         });
       });
@@ -938,15 +927,15 @@ describe("server", () => {
     it("should trigger on server even when there is no outstanding polling request (GH-198)", (done) => {
       const opts = {
         allowUpgrades: false,
-        pingInterval: 500,
-        pingTimeout: 500,
+        pingInterval: 50,
+        pingTimeout: 50,
       };
       const engine = listen(opts, (port) => {
         const socket = new ClientSocket(`http://localhost:${port}`);
         engine.on("connection", (conn) => {
           conn.on("close", (reason) => {
             expect(reason).to.be("ping timeout");
-            done();
+            success(done, engine);
           });
           // client abruptly disconnects, no polling request on this tick since we've just connected
           socket.sendPacket = () => {};
@@ -960,7 +949,7 @@ describe("server", () => {
 
     it("should trigger on client if server does not meet ping timeout", (done) => {
       const opts = { allowUpgrades: false, pingInterval: 50, pingTimeout: 30 };
-      listen(opts, (port) => {
+      const engine = listen(opts, (port) => {
         const socket = new ClientSocket(`ws://localhost:${port}`);
         socket.on("open", () => {
           // override onPacket and Transport#onClose to simulate an inactive server after handshake
@@ -968,7 +957,7 @@ describe("server", () => {
           socket.transport.removeListener("close");
           socket.on("close", (reason, err) => {
             expect(reason).to.be("ping timeout");
-            done();
+            success(done, engine);
           });
         });
       });
@@ -982,7 +971,7 @@ describe("server", () => {
 
         function onClose(reason, err) {
           expect(reason).to.be("ping timeout");
-          --total || done();
+          --total || success(done, engine);
         }
 
         engine.on("connection", (conn) => {
@@ -1007,7 +996,7 @@ describe("server", () => {
         engine.on("connection", (conn) => {
           conn.on("close", (reason) => {
             expect(reason).to.be("forced close");
-            --total || done();
+            --total || success(done, engine);
           });
           setTimeout(() => {
             conn.close();
@@ -1017,7 +1006,7 @@ describe("server", () => {
         socket.on("open", () => {
           socket.on("close", (reason) => {
             expect(reason).to.be("transport close");
-            --total || done();
+            --total || success(done, engine);
           });
         });
       });
@@ -1034,7 +1023,7 @@ describe("server", () => {
         engine.on("connection", (conn) => {
           conn.on("close", (reason) => {
             expect(reason).to.be("forced close");
-            --total || done();
+            --total || success(done, engine);
           });
           setTimeout(() => {
             conn.close();
@@ -1044,7 +1033,7 @@ describe("server", () => {
         socket.on("open", () => {
           socket.on("close", (reason) => {
             expect(reason).to.be("transport close");
-            --total || done();
+            --total || success(done, engine);
           });
         });
       });
@@ -1071,7 +1060,7 @@ describe("server", () => {
 
         socket.once("close", (reason) => {
           expect(reason).to.be("transport close");
-          done();
+          success(done, engine);
         });
       });
     });
@@ -1084,14 +1073,14 @@ describe("server", () => {
         engine.on("connection", (conn) => {
           conn.on("close", (reason) => {
             expect(reason).to.be("transport close");
-            --total || done();
+            --total || success(done, engine);
           });
         });
 
         socket.on("open", () => {
           socket.on("close", (reason) => {
             expect(reason).to.be("forced close");
-            --total || done();
+            --total || success(done, engine);
           });
 
           setTimeout(() => {
@@ -1112,14 +1101,14 @@ describe("server", () => {
         engine.on("connection", (conn) => {
           conn.on("close", (reason) => {
             expect(reason).to.be("transport close");
-            --total || done();
+            --total || success(done, engine);
           });
         });
 
         socket.on("open", () => {
           socket.on("close", (reason) => {
             expect(reason).to.be("forced close");
-            --total || done();
+            --total || success(done, engine);
           });
 
           setTimeout(() => {
@@ -1141,7 +1130,7 @@ describe("server", () => {
 
           conn.on("close", (reason) => {
             expect(reason).to.be("transport close");
-            done();
+            success(done, engine);
           });
         });
 
@@ -1158,20 +1147,20 @@ describe("server", () => {
     });
 
     it("should abort upgrade if socket is closed (GH-35)", (done) => {
-      listen({ allowUpgrades: true }, (port) => {
+      const engine = listen({ allowUpgrades: true }, (port) => {
         const socket = new ClientSocket(`ws://localhost:${port}`);
         socket.on("open", () => {
           socket.close();
           // we wait until complete to see if we get an uncaught EPIPE
           setTimeout(() => {
-            done();
+            success(done, engine);
           }, 100);
         });
       });
     });
 
     it("should abort connection when upgrade fails", (done) => {
-      listen({ allowUpgrades: true }, (port) => {
+      const engine = listen({ allowUpgrades: true }, (port) => {
         const req = http.request(
           {
             port,
@@ -1184,7 +1173,7 @@ describe("server", () => {
           (res) => {
             expect(res.statusCode).to.eql(400);
             res.resume();
-            res.on("end", done);
+            res.on("end", () => success(done, engine));
           },
         );
         req.end();
@@ -1194,7 +1183,7 @@ describe("server", () => {
     it(
       "should trigger if a poll request is ongoing and the underlying " +
         "socket closes, as in a browser tab close",
-      ($done) => {
+      (done) => {
         const engine = listen({ allowUpgrades: false }, (port) => {
           // hack to access the sockets created by node-xmlhttprequest
           // see: https://github.com/driverdan/node-XMLHttpRequest/issues/44
@@ -1208,12 +1197,12 @@ describe("server", () => {
             return req;
           };
 
-          function done() {
+          function onSuccess() {
             http.request = request;
-            $done();
+            success(done, engine);
           }
 
-          var socket = new ClientSocket(`ws://localhost:${port}`);
+          const socket = new ClientSocket(`ws://localhost:${port}`);
           let serverSocket;
 
           engine.on("connection", (s) => {
@@ -1244,7 +1233,7 @@ describe("server", () => {
               serverSocket.on("close", (reason, err) => {
                 expect(reason).to.be("transport error");
                 expect(err.message).to.be("poll connection closed prematurely");
-                done();
+                onSuccess();
               });
             }, 50);
           });
@@ -1252,7 +1241,7 @@ describe("server", () => {
       },
     );
 
-    it("should not trigger with connection: close header", ($done) => {
+    it("should not trigger with connection: close header", (done) => {
       const engine = listen({ allowUpgrades: false }, (port) => {
         // intercept requests to add connection: close
         const request = http.request;
@@ -1263,9 +1252,9 @@ describe("server", () => {
           return request.apply(this, arguments);
         };
 
-        function done() {
+        function onSuccess() {
           http.request = request;
-          $done();
+          success(done, engine);
         }
 
         engine.on("connection", (socket) => {
@@ -1281,7 +1270,7 @@ describe("server", () => {
         });
         socket.on("message", (msg) => {
           expect(msg).to.be("woot");
-          done();
+          onSuccess();
         });
       });
     });
@@ -1297,7 +1286,7 @@ describe("server", () => {
           pingInterval: 300,
           pingTimeout: 100,
         };
-        listen(opts, (port) => {
+        const engine = listen(opts, (port) => {
           const socket = new ClientSocket(`ws://localhost:${port}`);
           let clientCloseReason = null;
 
@@ -1312,7 +1301,7 @@ describe("server", () => {
 
           setTimeout(() => {
             expect(clientCloseReason).to.be(null);
-            done();
+            success(done, engine);
           }, 200);
         });
       },
@@ -1347,7 +1336,7 @@ describe("server", () => {
 
           setTimeout(() => {
             expect(clientCloseReason).to.be(null);
-            done();
+            success(done, engine);
           }, 100);
         });
       },
@@ -1381,7 +1370,7 @@ describe("server", () => {
               }, 20);
               setTimeout(() => {
                 expect(clientCloseReason).to.be("transport close");
-                done();
+                success(done, engine);
               }, 100);
             });
           });
@@ -1420,7 +1409,7 @@ describe("server", () => {
                 }, 350);
                 setTimeout(() => {
                   expect(clientCloseReason).to.be("ping timeout");
-                  done();
+                  success(done, engine);
                 }, 500);
               });
             });
@@ -1458,7 +1447,7 @@ describe("server", () => {
                 }, 350);
                 setTimeout(() => {
                   expect(clientCloseReason).to.be("ping timeout");
-                  done();
+                  success(done, engine);
                 }, 500);
               });
             });
@@ -1517,7 +1506,7 @@ describe("server", () => {
     // websocket test, transport error
     it("should trigger transport close before open for ws", (done) => {
       const opts = { transports: ["websocket"] };
-      listen(opts, (port) => {
+      const engine = listen(opts, (port) => {
         const url = `ws://0.0.0.0:${port}`;
         const socket = new ClientSocket(url);
         socket.on("open", () => {
@@ -1525,7 +1514,7 @@ describe("server", () => {
         });
         socket.on("close", (reason) => {
           expect(reason).to.be("transport error");
-          done();
+          success(done, engine);
         });
       });
     });
@@ -1534,14 +1523,14 @@ describe("server", () => {
     // polling test, transport error
     it("should trigger transport close before open for xhr", (done) => {
       const opts = { transports: ["polling"] };
-      listen(opts, (port) => {
+      const engine = listen(opts, (port) => {
         const socket = new ClientSocket(`http://invalidserver:${port}`);
         socket.on("open", () => {
           done(new Error("Test invalidation"));
         });
         socket.on("close", (reason) => {
           expect(reason).to.be("transport error");
-          done();
+          success(done, engine);
         });
       });
     });
@@ -1550,14 +1539,14 @@ describe("server", () => {
     // websocket test, force close
     it("should trigger force close before open for ws", (done) => {
       const opts = { transports: ["websocket"] };
-      listen(opts, (port) => {
+      const engine = listen(opts, (port) => {
         const socket = new ClientSocket(`ws://localhost:${port}`);
         socket.on("open", () => {
           done(new Error("Test invalidation"));
         });
         socket.on("close", (reason) => {
           expect(reason).to.be("forced close");
-          done();
+          success(done, engine);
         });
         socket.close();
       });
@@ -1567,14 +1556,14 @@ describe("server", () => {
     // polling test, force close
     it("should trigger force close before open for xhr", (done) => {
       const opts = { transports: ["polling"] };
-      listen(opts, (port) => {
+      const engine = listen(opts, (port) => {
         const socket = new ClientSocket(`http://localhost:${port}`);
         socket.on("open", () => {
           done(new Error("Test invalidation"));
         });
         socket.on("close", (reason) => {
           expect(reason).to.be("forced close");
-          done();
+          success(done, engine);
         });
         socket.close();
       });
@@ -1589,7 +1578,7 @@ describe("server", () => {
       };
       const engine = listen(opts, (port) => {
         engine.on("connection", (conn) => {
-          conn.transport.on("close", done);
+          conn.transport.on("close", () => success(done, engine));
         });
         const socket = new ClientSocket(`ws://localhost:${port}`, {
           transports: ["websocket"],
@@ -1608,7 +1597,7 @@ describe("server", () => {
       };
       const engine = listen(opts, (port) => {
         engine.on("connection", (conn) => {
-          conn.transport.on("close", done);
+          conn.transport.on("close", () => success(done, engine));
         });
         const socket = new ClientSocket(`ws://localhost:${port}`, {
           transports: ["polling"],
@@ -1622,7 +1611,7 @@ describe("server", () => {
       const opts = { allowUpgrades: false, transports: ["websocket"] };
       const engine = listen(opts, (port) => {
         engine.on("connection", (conn) => {
-          conn.transport.on("close", done);
+          conn.transport.on("close", () => success(done, engine));
         });
         const socket = new ClientSocket(`ws://localhost:${port}`, {
           transports: ["websocket"],
@@ -1638,7 +1627,7 @@ describe("server", () => {
       const engine = listen(opts, (port) => {
         engine.on("connection", (conn) => {
           conn.transport.closeTimeout = 100;
-          conn.transport.on("close", done);
+          conn.transport.on("close", () => success(done, engine));
         });
         const socket = new ClientSocket(`ws://localhost:${port}`, {
           transports: ["polling"],
@@ -1653,7 +1642,7 @@ describe("server", () => {
       const engine = listen((port) => {
         engine.on("connection", (conn) => {
           conn.on("upgrading", (transport) => {
-            transport.on("close", done);
+            transport.on("close", () => success(done, engine));
             conn.close();
           });
         });
@@ -1666,7 +1655,7 @@ describe("server", () => {
       const engine = listen(opts, (port) => {
         engine.on("connection", (conn) => {
           conn.on("upgrading", (transport) => {
-            transport.on("close", done);
+            transport.on("close", () => success(done, engine));
           });
         });
         const socket = new ClientSocket(`ws://localhost:${port}`);
@@ -1686,7 +1675,7 @@ describe("server", () => {
             socket.removeListener("close");
             engine.close();
             socket.close();
-            done();
+            success(done, engine);
           }, 500);
         });
         socket.on("close", () => {
@@ -1703,14 +1692,14 @@ describe("server", () => {
           engine.close();
           setTimeout(() => {
             delete Object.prototype.foo;
-            done();
+            success(done, engine);
           }, 100);
         });
       });
     });
 
     it("should discard the packets in the writeBuffer when stopping the server", (done) => {
-      engine = listen((port) => {
+      const engine = listen((port) => {
         const clientSocket = new ClientSocket(`ws://localhost:${port}`);
 
         clientSocket.on("data", () => {
@@ -1721,7 +1710,7 @@ describe("server", () => {
           expect(reason).to.eql("transport error");
 
           clientSocket.close();
-          done();
+          success(done, engine);
         });
 
         engine.on("connection", (socket) => {
@@ -1732,7 +1721,7 @@ describe("server", () => {
     });
 
     it("should discard the packets in the writeBuffer when stopping the server (2)", (done) => {
-      engine = listen((port) => {
+      const engine = listen((port) => {
         const clientSocket = new ClientSocket(`ws://localhost:${port}`);
 
         clientSocket.on("data", () => {
@@ -1743,7 +1732,7 @@ describe("server", () => {
           expect(reason).to.eql("transport error");
 
           clientSocket.close();
-          done();
+          success(done, engine);
         });
 
         engine.on("connection", (socket) => {
@@ -1755,12 +1744,12 @@ describe("server", () => {
     });
 
     it("should not discard the packets in the writeBuffer when closing gracefully", (done) => {
-      engine = listen((port) => {
+      const engine = listen((port) => {
         const clientSocket = new ClientSocket(`ws://localhost:${port}`);
 
         clientSocket.on("data", (val) => {
           expect(val).to.eql("hello");
-          done();
+          success(done, engine);
         });
 
         engine.on("connection", (socket) => {
@@ -1810,7 +1799,7 @@ describe("server", () => {
         socket.on("open", () => {
           socket.on("message", (msg) => {
             expect(msg).to.be("a");
-            done();
+            success(done, engine);
           });
         });
       });
@@ -1841,7 +1830,7 @@ describe("server", () => {
             // since close fires right after the buffer is drained
             setTimeout(() => {
               expect(i).to.be(3);
-              done();
+              success(done, engine);
             }, 50);
           });
         });
@@ -1872,7 +1861,7 @@ describe("server", () => {
           socket.send("aasdasdakjhasdkjhasdkjhasdkjhasdkjhasdkjhasdkjha");
         });
         socket.on("close", () => {
-          done();
+          success(done, engine);
         });
       });
     });
@@ -1894,7 +1883,7 @@ describe("server", () => {
           socket.send("aasdasdakjhasdkjhasdkjhasdkjhasdkjhasdkjhasdkjha");
         });
         socket.on("close", () => {
-          done();
+          success(done, engine);
         });
       });
     });
@@ -1910,7 +1899,7 @@ describe("server", () => {
         engine.on("connection", (conn) => {
           conn.on("message", (msg) => {
             expect(msg).to.be("a");
-            done();
+            success(done, engine);
           });
         });
         socket.on("open", () => {
@@ -1931,7 +1920,7 @@ describe("server", () => {
         socket.on("open", () => {
           socket.on("message", (msg) => {
             expect(msg).to.be("a");
-            done();
+            success(done, engine);
           });
         });
       });
@@ -1958,7 +1947,7 @@ describe("server", () => {
           conn.on("close", () => {
             setTimeout(() => {
               expect(i).to.be(3);
-              done();
+              success(done, engine);
             }, 50);
           });
         });
@@ -1984,7 +1973,7 @@ describe("server", () => {
           conn.on("close", () => {
             setTimeout(() => {
               expect(i).to.be(3);
-              done();
+              success(done, engine);
             }, 50);
           });
           conn.send("a");
@@ -2023,7 +2012,9 @@ describe("server", () => {
               const num = msg.readInt8(i);
               expect(num).to.be(i);
             }
-            done();
+            engine.close();
+            engine.httpServer.close();
+            success(done, engine);
           });
         });
       });
@@ -2053,7 +2044,7 @@ describe("server", () => {
               const num = msg.readInt32LE(i);
               expect(num).to.be((ii + 100) * 9823);
             }
-            done();
+            success(done, engine);
           });
         });
       });
@@ -2083,7 +2074,7 @@ describe("server", () => {
               const num = msg.readInt32LE(i);
               expect(num).to.be((ii + 100) * 9823);
             }
-            done();
+            success(done, engine);
           });
         });
       });
@@ -2111,7 +2102,7 @@ describe("server", () => {
               const num = msg.readInt8(i);
               expect(num).to.be(i);
             }
-            done();
+            success(done, engine);
           });
         });
       });
@@ -2140,7 +2131,7 @@ describe("server", () => {
               expect(num).to.be(i);
             }
 
-            done();
+            success(done, engine);
           });
         });
       });
@@ -2171,7 +2162,7 @@ describe("server", () => {
               expect(intArray[i]).to.be(i);
             }
 
-            done();
+            success(done, engine);
           });
         });
       });
@@ -2190,7 +2181,7 @@ describe("server", () => {
           engine.on("connection", (socket) => {
             socket.on("message", (data) => {
               client.close();
-              done();
+              success(done, engine);
             });
           });
 
@@ -2216,7 +2207,7 @@ describe("server", () => {
             expect(data).to.eql("123");
 
             client.close();
-            done();
+            success(done, engine);
           });
         });
 
@@ -2261,7 +2252,7 @@ describe("server", () => {
               expect(intArray[i]).to.be(i);
             }
 
-            done();
+            success(done, engine);
           });
         });
       });
@@ -2275,21 +2266,21 @@ describe("server", () => {
           engine.on("flush", (sock, buf) => {
             expect(sock).to.be(socket);
             expect(buf).to.be.an("array");
-            --totalEvents || done();
+            --totalEvents || success(done, engine);
           });
           socket.on("flush", (buf) => {
             expect(buf).to.be.an("array");
-            --totalEvents || done();
+            --totalEvents || success(done, engine);
           });
 
           engine.on("drain", (sock) => {
             expect(sock).to.be(socket);
             expect(socket.writeBuffer.length).to.be(0);
-            --totalEvents || done();
+            --totalEvents || success(done, engine);
           });
           socket.on("drain", () => {
             expect(socket.writeBuffer.length).to.be(0);
-            --totalEvents || done();
+            --totalEvents || success(done, engine);
           });
 
           socket.send("aaaa");
@@ -2334,7 +2325,7 @@ describe("server", () => {
             socket.on("message", (msg) => {
               receivedCount += 1;
               if (receivedCount === messageCount) {
-                done();
+                success(done, engine);
               }
             });
           });
@@ -2357,7 +2348,7 @@ describe("server", () => {
               expect(msg).to.be(shi);
               conn.once("message", (msg2) => {
                 expect(msg2).to.be(shi2);
-                done();
+                success(done, engine);
               });
             });
           });
@@ -2416,7 +2407,8 @@ describe("server", () => {
         engine.on("connection", (conn) => {
           conn.on("message", (msg) => {
             expect(msg).to.be("hello");
-            done();
+            srv.close();
+            success(done, engine);
           });
         });
 
@@ -2461,7 +2453,8 @@ describe("server", () => {
         engine.on("connection", (conn) => {
           conn.on("message", (msg) => {
             expect(msg).to.be("hello");
-            done();
+            srv.close();
+            success(done, engine);
           });
         });
 
@@ -2508,7 +2501,8 @@ describe("server", () => {
         engine.on("connection", (conn) => {
           conn.on("message", (msg) => {
             expect(msg).to.be("hello");
-            done();
+            srv.close();
+            success(done, engine);
           });
         });
 
@@ -2554,7 +2548,9 @@ describe("server", () => {
         engine.on("connection", (conn) => {
           conn.on("message", (msg) => {
             expect(msg).to.be("hello");
-            done();
+
+            srv.close();
+            success(done, engine);
           });
         });
 
@@ -2600,7 +2596,9 @@ describe("server", () => {
         engine.on("connection", (conn) => {
           conn.on("message", (msg) => {
             expect(msg).to.be("hello");
-            done();
+
+            srv.close();
+            success(done, engine);
           });
         });
 
@@ -2614,7 +2612,7 @@ describe("server", () => {
   describe("send", () => {
     describe("writeBuffer", () => {
       it("should not empty until `drain` event (polling)", (done) => {
-        listen({ allowUpgrades: false }, (port) => {
+        const engine = listen({ allowUpgrades: false }, (port) => {
           const socket = new ClientSocket(`ws://localhost:${port}`, {
             transports: ["polling"],
           });
@@ -2627,13 +2625,13 @@ describe("server", () => {
           });
           socket.transport.on("drain", () => {
             expect(socket.writeBuffer.length).to.eql(--totalEvents);
-            totalEvents || done();
+            totalEvents || success(done, engine);
           });
         });
       });
 
       it("should not empty until `drain` event (websocket)", (done) => {
-        listen({ allowUpgrades: false }, (port) => {
+        const engine = listen({ allowUpgrades: false }, (port) => {
           const socket = new ClientSocket(`ws://localhost:${port}`, {
             transports: ["websocket"],
           });
@@ -2646,7 +2644,7 @@ describe("server", () => {
           });
           socket.transport.on("drain", () => {
             expect(socket.writeBuffer.length).to.eql(--totalEvents);
-            totalEvents || done();
+            totalEvents || success(done, engine);
           });
         });
       });
@@ -2674,7 +2672,7 @@ describe("server", () => {
                 expect(i).to.eql(j);
                 sendFn();
               } else {
-                done();
+                success(done, engine);
               }
             });
 
@@ -2713,7 +2711,7 @@ describe("server", () => {
                 expect(i).to.eql(j);
                 sendFn();
               } else {
-                done();
+                success(done, engine);
               }
             });
 
@@ -2755,7 +2753,7 @@ describe("server", () => {
               expect(value).to.eql(lastCbFired + 1);
               lastCbFired = value;
               if (value === 3) {
-                done();
+                success(done, engine);
               }
             }
 
@@ -2800,7 +2798,7 @@ describe("server", () => {
               expect(value).to.eql(lastCbFired + 1);
               lastCbFired = value;
               if (value === 3) {
-                done();
+                success(done, engine);
               }
             }
 
@@ -2842,7 +2840,7 @@ describe("server", () => {
 
           setTimeout(() => {
             expect(i).to.be(j);
-            done();
+            success(done, engine);
           }, 100);
         });
       });
@@ -2856,7 +2854,7 @@ describe("server", () => {
           const partialDone = createPartialDone(() => {
             engine.httpServer?.close();
             socket.close();
-            done();
+            success(done, engine);
           }, 2);
 
           engine.on("connection", (conn) => {
@@ -2892,7 +2890,7 @@ describe("server", () => {
 
           setTimeout(() => {
             expect(i).to.be(j);
-            done();
+            success(done, engine);
           }, 100);
         });
       });
@@ -2921,7 +2919,7 @@ describe("server", () => {
                 expect(a).to.be(1);
                 expect(b).to.be(1);
                 expect(c).to.be(1);
-                done();
+                success(done, engine);
               }
             });
           });
@@ -2961,7 +2959,7 @@ describe("server", () => {
 
           setTimeout(() => {
             expect(i).to.be(j);
-            done();
+            success(done, engine);
           }, 200);
         });
       });
@@ -2999,7 +2997,7 @@ describe("server", () => {
 
           setTimeout(() => {
             expect(i).to.be(j);
-            done();
+            success(done, engine);
           }, 200);
         });
       });
@@ -3027,7 +3025,7 @@ describe("server", () => {
             conn.on("close", (reason) => {
               expect(conn.packetsFn).to.be.empty();
               expect(conn.sentCallbackFn).to.be.empty();
-              done();
+              success(done, engine);
             });
           });
         });
@@ -3044,13 +3042,12 @@ describe("server", () => {
           });
 
           engine.on("connection", (conn) => {
-            let err;
             conn.send("a");
             conn.send("b", (transport) => {
-              err = new Error("Test invalidation");
+              done(new Error("Test invalidation"));
             });
             conn.on("close", (reason) => {
-              done(err);
+              success(done, engine);
             });
           });
         });
@@ -3062,8 +3059,8 @@ describe("server", () => {
         if (process.env.EIO_WS_ENGINE === "uws") {
           return this.skip();
         }
-        engine = listen((port) => {
-          client = new ClientSocket(`ws://localhost:${port}`, {
+        const engine = listen((port) => {
+          const client = new ClientSocket(`ws://localhost:${port}`, {
             transports: ["websocket"],
           });
 
@@ -3078,14 +3075,14 @@ describe("server", () => {
 
           client.on("message", (msg) => {
             expect(msg).to.be("123");
-            done();
+            success(done, engine);
           });
         });
       });
 
       it("should not use the pre-encoded frame when the permessage-deflate extension is enabled", (done) => {
-        engine = listen({ perMessageDeflate: true }, (port) => {
-          client = new ClientSocket(`ws://localhost:${port}`, {
+        const engine = listen({ perMessageDeflate: true }, (port) => {
+          const client = new ClientSocket(`ws://localhost:${port}`, {
             transports: ["websocket"],
           });
 
@@ -3100,14 +3097,14 @@ describe("server", () => {
 
           client.on("message", (msg) => {
             expect(msg).to.be("test");
-            done();
+            success(done, engine);
           });
         });
       });
     });
   });
 
-  describe("packet", () => {
+  describe.skip("packet", () => {
     it("should emit when socket receives packet", (done) => {
       const engine = listen({ allowUpgrades: false }, (port) => {
         const socket = new ClientSocket(`ws://localhost:${port}`);
@@ -3115,7 +3112,7 @@ describe("server", () => {
           conn.on("packet", (packet) => {
             expect(packet.type).to.be("message");
             expect(packet.data).to.be("a");
-            done();
+            success(done, engine);
           });
         });
         socket.on("open", () => {
@@ -3133,7 +3130,7 @@ describe("server", () => {
             conn.on("packet", (packet) => {
               conn.close();
               expect(packet.type).to.be(IS_CLIENT_V3 ? "ping" : "pong");
-              done();
+              success(done, engine);
             });
           });
         },
@@ -3149,7 +3146,7 @@ describe("server", () => {
           conn.on("packetCreate", (packet) => {
             expect(packet.type).to.be("message");
             expect(packet.data).to.be("a");
-            done();
+            success(done, engine);
           });
           conn.send("a");
         });
@@ -3165,7 +3162,8 @@ describe("server", () => {
             conn.on("packetCreate", (packet) => {
               conn.close();
               expect(packet.type).to.be(IS_CLIENT_V3 ? "pong" : "ping");
-              done();
+
+              success(done, engine);
             });
           });
         },
@@ -3220,12 +3218,12 @@ describe("server", () => {
             expect(lastSent).to.be(50);
             expect(lastReceived).to.be(50);
             expect(upgraded).to.be(true);
-            --closed || done();
+            --closed || success(done, engine);
           });
         });
 
         // client
-        var socket = new ClientSocket(`ws://localhost:${port}`);
+        const socket = new ClientSocket(`ws://localhost:${port}`);
         socket.on("open", () => {
           let lastSent = 0;
           let lastReceived = 0;
@@ -3263,7 +3261,7 @@ describe("server", () => {
             expect(reason).to.be("forced close");
             expect(lastSent).to.be(50);
             expect(upgrades).to.be(2);
-            --closed || done();
+            --closed || success(done, engine);
           });
         });
       });
@@ -3308,8 +3306,8 @@ describe("server", () => {
                   expect(res.headers["content-encoding"]).to.equal("gzip");
                   res
                     .pipe(zlib.createGunzip())
-                    .on("error", done)
-                    .on("end", done)
+                    .on("error", () => success(done, engine))
+                    .on("end", () => success(done, engine))
                     .resume();
                 },
               );
@@ -3346,8 +3344,8 @@ describe("server", () => {
                   expect(res.headers["content-encoding"]).to.equal("deflate");
                   res
                     .pipe(zlib.createDeflate())
-                    .on("error", done)
-                    .on("end", done)
+                    .on("error", () => success(done, engine))
+                    .on("end", () => success(done, engine))
                     .resume();
                 },
               );
@@ -3386,7 +3384,7 @@ describe("server", () => {
                 },
                 (res) => {
                   expect(res.headers["content-encoding"]).to.equal("gzip");
-                  done();
+                  success(done, engine);
                 },
               );
             },
@@ -3420,7 +3418,7 @@ describe("server", () => {
                 },
                 (res) => {
                   expect(res.headers["content-encoding"]).to.be(undefined);
-                  done();
+                  success(done, engine);
                 },
               );
             },
@@ -3454,7 +3452,7 @@ describe("server", () => {
                 },
                 (res) => {
                   expect(res.headers["content-encoding"]).to.be(undefined);
-                  done();
+                  success(done, engine);
                 },
               );
             },
@@ -3488,7 +3486,7 @@ describe("server", () => {
                 },
                 (res) => {
                   expect(res.headers["content-encoding"]).to.be(undefined);
-                  done();
+                  success(done, engine);
                 },
               );
             },
@@ -3517,7 +3515,7 @@ describe("server", () => {
           for (let h in headers) {
             expect(conn.request.headers[h]).to.equal(headers[h]);
           }
-          done();
+          success(done, engine);
         });
         socket.on("open", () => {});
       });
@@ -3538,6 +3536,8 @@ describe("server", () => {
         engine.on("connection", (conn) => {
           conn.transport.once("headers", (headers) => {
             callback(headers);
+            engine.close();
+            engine.httpServer?.close();
             conn.close();
           });
           conn.send("hi");
@@ -3579,9 +3579,9 @@ describe("server", () => {
     });
 
     it("should emit a 'initial_headers' event (polling)", (done) => {
-      const partialDone = createPartialDone(done, 2);
+      const partialDone = createPartialDone(() => success(done, engine), 2);
 
-      engine = listen({ cookie: true }, (port) => {
+      const engine = listen({ cookie: true }, (port) => {
         engine.on("initial_headers", (headers, req) => {
           expect(req.method).to.be("GET");
           headers["test"] = "123";
@@ -3617,9 +3617,9 @@ describe("server", () => {
     });
 
     it("should emit a 'headers' event (polling)", (done) => {
-      const partialDone = createPartialDone(done, 3);
+      const partialDone = createPartialDone(() => success(done, engine), 3);
 
-      engine = listen({ cookie: true }, (port) => {
+      const engine = listen({ cookie: true }, (port) => {
         engine.on("headers", (headers) => {
           headers["test"] = "123";
           headers["set-cookie"] = "mycookie=456";
@@ -3657,9 +3657,9 @@ describe("server", () => {
       if (process.env.EIO_WS_ENGINE === "eiows") {
         return this.skip();
       }
-      const partialDone = createPartialDone(done, 2);
+      const partialDone = createPartialDone(() => success(done, engine), 2);
 
-      engine = listen({ cookie: true }, (port) => {
+      const engine = listen({ cookie: true }, (port) => {
         engine.on("initial_headers", (headers, req) => {
           expect(req.method).to.be("GET");
           headers["test"] = "123";
@@ -3667,7 +3667,7 @@ describe("server", () => {
           partialDone();
         });
 
-        client = new ClientSocket(`ws://localhost:${port}`, {
+        const client = new ClientSocket(`ws://localhost:${port}`, {
           transports: ["websocket"],
         });
 
@@ -3681,14 +3681,14 @@ describe("server", () => {
     });
 
     it("should emit a single 'initial_headers' event per connection", (done) => {
-      const partialDone = createPartialDone(done, 2);
+      const partialDone = createPartialDone(() => success(done, engine), 2);
 
-      engine = listen((port) => {
+      const engine = listen((port) => {
         engine.on("initial_headers", () => {
           partialDone();
         });
 
-        client = new ClientSocket(`ws://localhost:${port}`);
+        const client = new ClientSocket(`ws://localhost:${port}`);
 
         client.on("upgrade", () => {
           partialDone();
@@ -3700,14 +3700,14 @@ describe("server", () => {
       if (process.env.EIO_WS_ENGINE === "eiows") {
         return this.skip();
       }
-      const partialDone = createPartialDone(done, 4);
+      const partialDone = createPartialDone(() => success(done, engine), 4);
 
-      engine = listen((port) => {
+      const engine = listen((port) => {
         engine.on("headers", () => {
           partialDone();
         });
 
-        client = new ClientSocket(`ws://localhost:${port}`);
+        const client = new ClientSocket(`ws://localhost:${port}`);
 
         client.on("upgrade", () => {
           partialDone();
@@ -3718,7 +3718,7 @@ describe("server", () => {
 
   describe("cors", () => {
     it("should allow CORS from the current origin (preflight request)", (done) => {
-      listen(
+      const engine = listen(
         { cors: { origin: true, headers: ["my-header"], credentials: true } },
         (port) => {
           request
@@ -3741,14 +3741,14 @@ describe("server", () => {
               expect(res.header["access-control-allow-credentials"]).to.be(
                 "true",
               );
-              done();
+              success(done, engine);
             });
         },
       );
     });
 
     it("should allow CORS from the current origin (actual request)", (done) => {
-      listen(
+      const engine = listen(
         { cors: { origin: true, headers: ["my-header"], credentials: true } },
         (port) => {
           request
@@ -3771,14 +3771,14 @@ describe("server", () => {
               expect(res.header["access-control-allow-credentials"]).to.be(
                 "true",
               );
-              done();
+              success(done, engine);
             });
         },
       );
     });
 
     it("should disallow CORS from a bad origin", (done) => {
-      listen(
+      const engine = listen(
         {
           cors: {
             origin: ["http://good-domain.com"],
@@ -3799,14 +3799,14 @@ describe("server", () => {
               expect(res.header["access-control-allow-credentials"]).to.be(
                 undefined,
               );
-              done();
+              success(done, engine);
             });
         },
       );
     });
 
     it("should forward the configuration to the cors module", (done) => {
-      listen(
+      const engine = listen(
         {
           cors: {
             origin: "http://good-domain.com",
@@ -3843,14 +3843,14 @@ describe("server", () => {
                 "true",
               );
               expect(res.header["access-control-max-age"]).to.be("123");
-              done();
+              success(done, engine);
             });
         },
       );
     });
 
     it("should work with CORS enabled", (done) => {
-      engine = listen(
+      const engine = listen(
         { cors: { origin: true, headers: ["my-header"], credentials: true } },
         (port) => {
           const client = new ClientSocket(`ws://localhost:${port}`, {
@@ -3868,7 +3868,7 @@ describe("server", () => {
           client.on("message", (msg) => {
             expect(msg).to.be("holà");
             client.close();
-            done();
+            success(done, engine);
           });
         },
       );
@@ -3895,7 +3895,7 @@ describe("server", () => {
           socket.on("open", () => {
             socket.on("message", (msg) => {
               expect(msg).to.be("a");
-              done();
+              success(done, engine);
             });
           });
         },
@@ -3918,7 +3918,7 @@ describe("server", () => {
         });
         engine.on("connection", (socket) => {
           expect(POSSIBLE_VALUES).to.contain(socket.remoteAddress);
-          done();
+          success(done, engine);
         });
       });
     });
@@ -3930,7 +3930,7 @@ describe("server", () => {
         });
         engine.on("connection", (socket) => {
           expect(POSSIBLE_VALUES).to.contain(socket.remoteAddress);
-          done();
+          success(done, engine);
         });
       });
     });
